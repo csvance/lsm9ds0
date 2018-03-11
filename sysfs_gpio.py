@@ -2,7 +2,7 @@ import select
 
 
 class GPIO(object):
-    def __init__(self, number, direction, edge):
+    def __init__(self, number, direction, edge=None):
         self.number = number
         self.direction = direction
         self.edge = edge
@@ -19,13 +19,14 @@ class GPIO(object):
                 raise e
 
         self.set_direction(direction)
-        self.set_edge(edge)
+        if direction == 'in' and edge is not None:
+            self.set_edge(edge)
 
-        self._poll_queue = select.epoll()
-        self._poll_queue.register(self._value_file, select.EPOLLPRI | select.EPOLLET)
+            self._poll_queue = select.epoll()
+            self._poll_queue.register(self._value_file, select.EPOLLPRI | select.EPOLLET)
 
-        # Eat the first event
-        _ = self._poll_queue.poll()
+            # Eat the first event
+            _ = self._poll_queue.poll()
 
     def _write_sysfs(self, path, value):
         sysfs_file = open(path, 'w')
@@ -65,4 +66,6 @@ class GPIO(object):
         self._write_sysfs('/sys/class/gpio/unexport', '%d' % self.number)
 
     def wait_for_int(self, timeout=-1.):
+        if self.direction is not 'in' or self.edge is None:
+            raise ValueError()
         return self._poll_queue.poll(timeout=timeout)
