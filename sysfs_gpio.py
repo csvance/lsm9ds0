@@ -67,5 +67,5 @@ class GPIO(object):
 
     def wait_for_int(self, timeout=-1.):
         if self.direction is not 'in' or self.edge is None:
-            raise ValueError()
+            raise ValueError("Cannot wait for interrupt if pin is not in input mode or does not have an edge mode set")
         return self._poll_queue.poll(timeout=timeout)

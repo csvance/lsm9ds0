@@ -5,14 +5,15 @@ from smbus import SMBus
 
 
 class LSM9DS0(object):
-    MAG_ADDRESS = 0x1D
-    ACCEL_ADDRESS = 0x1D
-    GYRO_ADDRESS = 0x6B
+    XM_ADDRESS = 0x1D
+    G_ADDRESS = 0x6B
 
     WHO_AM_I_G = 0x0F
     CTRL_REG1_G = 0x20
+    CTRL_REG2_G = 021
     CTRL_REG3_G = 0x22
     CTRL_REG4_G = 0x23
+    CTRL_REG5_G = 0x24
     OUT_X_L_G = 0x28
     OUT_X_H_G = 0x29
     OUT_Y_L_G = 0x2A
@@ -50,6 +51,7 @@ class LSM9DS0(object):
     WHO_AM_I_XM = 0x0F
     INT_CTRL_REG_M = 0x12
     INT_SRC_REG_M = 0x13
+    CTRL_REG0_XM = 0x1F
     CTRL_REG1_XM = 0x20
     CTRL_REG2_XM = 0x21
     CTRL_REG3_XM = 0x22
@@ -58,6 +60,7 @@ class LSM9DS0(object):
     CTRL_REG6_XM = 0x25
     CTRL_REG7_XM = 0x26
 
+    FIFO_CTRL_REG = 0x2E
     FIFO_CTRL_REG_G = 0x2E
 
     # Accelerometer addresses
@@ -110,10 +113,11 @@ class LSM9DS0(object):
     GYROSCALE_500DPS = 0b01 << 4
     GYROSCALE_2000DPS = 0b10 << 4
 
-    def __init__(self, gpio_interrupt_num=161, i2c_bus_num=0):
+    def __init__(self, gpio_interrupt_num=161, i2c_bus_num=0, fifo_size=4):
 
         self._pin_int_gpio_num = gpio_interrupt_num
         self._i2c_bus_num = i2c_bus_num
+        self._fifo_size = fifo_size
 
         # Hardware Resources
         self._pin_int = None
@@ -134,45 +138,101 @@ class LSM9DS0(object):
         self._pin_int = GPIO(self._pin_int_gpio_num, 'in', 'rising')
         self._smbus = SMBus(self._i2c_bus_num)
 
+    def _detect_who_am_i(self):
+        who_am_i_accelmag = self._i2c_read_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.WHO_AM_I_G)
+        if who_am_i_accelmag != 0b01001001:
+            return False
+
+        who_am_i_gyro = self._i2c_read_byte(LSM9DS0.G_ADDRESS, LSM9DS0.WHO_AM_I_G)
+        if who_am_i_gyro != 0b11010100:
+            return False
+
+        return True
+
+    def _i2c_write_byte(self, address, register, value):
+        self._smbus.write_byte_data(address, register, value)
+
+    def _i2c_read_byte(self, address, register):
+        return self._smbus.read_byte_data(address, register)
+
+    def _enable_fifo_irq(self):
+        # 11111 = 32 fifo size, not 100000
+        fifo_bitmask = self._fifo_size - 1
+
+        self._i2c_write_byte(LSM9DS0.G_ADDRESS, LSM9DS0.FIFO_CTRL_REG, 0b00100000 | fifo_bitmask)
+
+    def _disable_fifo_irq(self):
+        self._i2c_write_byte(LSM9DS0.G_ADDRESS, LSM9DS0.FIFO_CTRL_REG, 0b00000000)
+
     def _init_registers(self):
 
-        # Global Registers
-        # Enable FIFO mode
-        # Set FIFO watermark level to 32
-        self._smbus.write_byte_data(LSM9DS0.ACCEL_ADDRESS, LSM9DS0.FIFO_CTRL_REG_G, 0b00111111)
+        self._disable_fifo_irq()
 
-        # Enable FIFO watermark interupt on DRDY
-        self._smbus.write_byte_data(LSM9DS0.ACCEL_ADDRESS, LSM9DS0.CTRL_REG3_G, 0b00000100)
+        # --Initialize Magnometer / Accelerometer--
+        # Enable FIFO
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG0_XM, 0b01000000)
 
-        # --Device Specific--
-        # --Initialize Accelerometer--
-        # 100 hz
-        # All axis enabled
-        self._smbus.write_byte_data(LSM9DS0.ACCEL_ADDRESS, LSM9DS0.CTRL_REG1_XM, 0b01100111)
+        # 100 Hz
+        # Enable X Y Z
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG1_XM, 0b01100111)
 
         # 773 hz anti-alias filter
         # +/- 16 g
-        self._smbus.write_byte_data(LSM9DS0.ACCEL_ADDRESS, LSM9DS0.CTRL_REG2_XM, 0b00100000)
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG2_XM, 0b00100000)
 
-        # --Initialize Magnometer--
         # High resolution
-        # 100hz
-        self._smbus.write_byte_data(LSM9DS0.MAG_ADDRESS, LSM9DS0.CTRL_REG5_XM, 0b01110100)
+        # 100 Hz
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG5_XM, 0b01110100)
 
         # +/- 12 gauss
-        self._smbus.write_byte_data(LSM9DS0.MAG_ADDRESS, LSM9DS0.CTRL_REG6_XM, 0b01100000)
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG6_XM, 0b01100000)
 
         # Continuous
-        self._smbus.write_byte_data(LSM9DS0.MAG_ADDRESS, LSM9DS0.CTRL_REG7_XM, 0b00000000)
+        self._i2c_write_byte(LSM9DS0.XM_ADDRESS, LSM9DS0.CTRL_REG7_XM, 0b00000000)
+
+        # --Initialize Gyrometer--
+        # Disable Power Down Mode
+        # Enable X Y Z
+        self._i2c_write_byte(LSM9DS0.G_ADDRESS, LSM9DS0.CTRL_REG1_G, 0b00001111)
+
+        # Enable FIFO watermark interupt on DRDY
+        self._i2c_write_byte(LSM9DS0.G_ADDRESS, LSM9DS0.CTRL_REG3_G, 0b00000100)
+
+        # FIFO Mode
+        self._i2c_write_byte(LSM9DS0.G_ADDRESS, LSM9DS0.CTRL_REG5_G, 0b01000000)
+
+        self._enable_fifo_irq()
+
+    def _read_fifo(self):
+        # Mag
+        mag_data = []
+        for i in range(0, self._fifo_size):
+            mag_data.append(self._smbus.read_i2c_block_data(LSM9DS0.XM_ADDRESS, LSM9DS0.OUT_X_L_M, 6))
+
+        # Accel
+        mag_data = []
+        for i in range(0, self._fifo_size):
+            mag_data.append(self._smbus.read_i2c_block_data(LSM9DS0.XM_ADDRESS, LSM9DS0.OUT_X_L_A, 6))
+
+        # Gyro
+        mag_data = []
+        for i in range(0, self._fifo_size):
+            mag_data.append(self._smbus.read_i2c_block_data(LSM9DS0.G_ADDRESS, LSM9DS0.OUT_X_L_G, 6))
 
     def _main_loop(self):
 
         self._init_hardware()
+
+        if not self._detect_who_am_i():
+            raise ValueError("Could not detect I2C device")
+
         self._init_registers()
 
         while not self._shutdown_event.is_set():
             event = self._pin_int.wait_for_int(timeout=0.1)
             if len(event) == 1 and event[0][1] == 10:
-                # TODO: Read FIFO buffer
-                pass
+                self._read_fifo()
 
+                # Clear Interrupt
+                self._disable_fifo_irq()
+                self._enable_fifo_irq()
