@@ -13,7 +13,7 @@ class LSM9DS0(object):
 
     WHO_AM_I_G = 0x0F
     CTRL_REG1_G = 0x20
-    CTRL_REG2_G = 021
+    CTRL_REG2_G = 0x21
     CTRL_REG3_G = 0x22
     CTRL_REG4_G = 0x23
     CTRL_REG5_G = 0x24
