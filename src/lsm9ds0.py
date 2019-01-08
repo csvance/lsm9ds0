@@ -1,5 +1,6 @@
 import math
 from smbus import SMBus
+import numpy as np
 from threading import Thread, Event
 
 from sysfs_gpio import GPIO
