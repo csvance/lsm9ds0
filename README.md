@@ -1,4 +1,5 @@
-# Interrupt Based LSM9DS0 Python Driver 
-- Supports FIFO and data ready interrupt for efficient retrieval of 9dof data 
-- Works with Python 2.7+
-- Requires python-smbus or equivalent I2C library
+# lsm9ds0
+IRQ/FIFO based LSM9DS0 ROS Node
+
+- Publishes to /imu/data_raw and /imu/mag
+- Samples at 100hz

@@ -1,0 +1,10 @@
+<launch>
+  <node pkg="lsm9ds0" type="lsm9ds0_node.py" name="lsm9ds0" output="screen">
+    <param name="~gyro_cal_x" value="-0.405874"/>
+    <param name="~gyro_cal_y" value="0.183413"/>
+    <param name="~gyro_cal_z" value="-0.891533"/>
+    <param name="~gpio_int_pin_num" value="161"/>
+    <param name="~i2c_bus_num" value="1"/>
+    <param name="~calibrate" value="false"/>
+  </node>
+</launch>
