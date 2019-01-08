@@ -8,7 +8,7 @@ from lsm9ds0 import LSM9DS0
 
 class LSM9DS0Node(object):
     def __init__(self):
-        self._ros_init()
+        rospy.init_node('lsm9ds0')
 
         i2c_bus_num = rospy.get_param('~i2c_bus_num')
         gpio_int_pin_num = rospy.get_param('~gpio_int_pin_num')
@@ -30,8 +30,6 @@ class LSM9DS0Node(object):
                                i2c_bus_num=i2c_bus_num, gpio_int_pin_num=gpio_int_pin_num, fifo_size=1)
         self._sensor.start()
 
-    def _ros_init(self):
-        rospy.init_node('lsm9ds0')
         self._publisher_imu = rospy.Publisher('/imu/data_raw', Imu, queue_size=10)
         self._publisher_magnetic = rospy.Publisher('/imu/mag', MagneticField, queue_size=10)
 
