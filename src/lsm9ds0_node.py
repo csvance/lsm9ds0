@@ -4,6 +4,7 @@ import rospy
 from sensor_msgs.msg import Imu, MagneticField
 from threading import Event
 import numpy as np
+import tf
 
 from lsm9ds0 import LSM9DS0
 
@@ -14,6 +15,8 @@ class LSM9DS0Node(object):
 
         i2c_bus_num = rospy.get_param('~i2c_bus_num')
         gpio_int_pin_num = rospy.get_param('~gpio_int_pin_num')
+
+        self._tf_broadcaster = tf.TransformBroadcaster()
 
         if rospy.get_param('~calibrate'):
             calibrator = LSM9DS0GyroCalibrator(gpio_int_pin_num=gpio_int_pin_num,
@@ -29,18 +32,19 @@ class LSM9DS0Node(object):
             g_cal_y = rospy.get_param('~gyro_cal_y')
             g_cal_z = rospy.get_param('~gyro_cal_z')
 
+        self._publisher_imu = rospy.Publisher('/imu/data_raw', Imu, queue_size=10)
+        self._publisher_magnetic = rospy.Publisher('/imu/mag', MagneticField, queue_size=10)
 
         self._sensor = LSM9DS0(callback=self._sensor_callback, gyro_cal=[g_cal_x, g_cal_y, g_cal_z],
                                i2c_bus_num=i2c_bus_num, gpio_int_pin_num=gpio_int_pin_num, fifo_size=1)
         self._sensor.start()
 
-        self._publisher_imu = rospy.Publisher('/imu/data_raw', Imu, queue_size=10)
-        self._publisher_magnetic = rospy.Publisher('/imu/mag', MagneticField, queue_size=10)
 
     def _sensor_callback(self, accelerometer, magnometer, gyrometer):
         end_ts = rospy.get_time()
 
         for i in range(0, len(accelerometer)):
+
             imu = Imu()
             magnetic = MagneticField()
 
@@ -50,6 +54,7 @@ class LSM9DS0Node(object):
             stamp = rospy.Time.from_sec(end_ts - samples_behind * samples_per_sec)
 
             imu.header.stamp = stamp
+            imu.header.frame_id = "imu"
             magnetic.header.stamp = stamp
 
             imu.orientation_covariance[0] = -1.
@@ -68,8 +73,15 @@ class LSM9DS0Node(object):
             magnetic.magnetic_field.y = magnometer[i][1]
             magnetic.magnetic_field.z = magnometer[i][2]
 
+            self._tf_broadcaster.sendTransform((0, 0, 0),
+                                   (0., 0., 0., 1.),
+                                   imu.header.stamp,
+                                   "base_link", "imu")
+
             self._publisher_imu.publish(imu)
             self._publisher_magnetic.publish(magnetic)
+
+
 
     def shutdown(self):
         self._sensor.shutdown()
@@ -105,7 +117,7 @@ class LSM9DS0GyroCalibrator(object):
 
             if self._calibration_sample_count >= self.calibration_samples:
                 for idx, col in enumerate(['x', 'y', 'z']):
-                    print("<param name=\"~gyro_cal_%s\" value=\"%f\"" % (col, np.average(d[:, idx])))
+                    print("<param name=\"~gyro_cal_%s\" value=\"%f\"/>" % (col, np.average(d[:, idx])))
                 print("All done!")
 
                 self.calibration = (np.average(d[:, 0]), np.average(d[:, 1]), np.average(d[:, 2]))

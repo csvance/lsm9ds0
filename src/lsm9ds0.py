@@ -1,6 +1,7 @@
 import math
 from smbus import SMBus
 from threading import Thread, Event
+import time
 
 from sysfs_gpio import GPIO
 
@@ -261,9 +262,10 @@ class LSM9DS0(object):
 
         while not self._shutdown_event.is_set():
             event = self._pin_int.wait_for_int(timeout=0.1)
+
             if len(event) == 1 and event[0][1] == 10:
-                self._read_fifo()
 
                 # Clear Interrupt
                 self._disable_fifo_irq()
+                self._read_fifo()
                 self._enable_fifo_irq()
