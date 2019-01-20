@@ -41,6 +41,10 @@ class LSM9DS0Node(object):
 
 
     def _sensor_callback(self, accelerometer, magnometer, gyrometer):
+
+        if rospy.is_shutdown():
+            return
+
         end_ts = rospy.get_time()
 
         for i in range(0, len(accelerometer)):
@@ -73,14 +77,15 @@ class LSM9DS0Node(object):
             magnetic.magnetic_field.y = magnometer[i][1]
             magnetic.magnetic_field.z = magnometer[i][2]
 
-            self._tf_broadcaster.sendTransform((0, 0, 0),
-                                   (0., 0., 0., 1.),
-                                   imu.header.stamp,
-                                   "base_link", "imu")
-
-            self._publisher_imu.publish(imu)
-            self._publisher_magnetic.publish(magnetic)
-
+            try:
+                self._tf_broadcaster.sendTransform((0, 0, 0),
+                                       (0., 0., 0., 1.),
+                                       imu.header.stamp,
+                                       "base_link", "imu")
+                self._publisher_imu.publish(imu)
+                self._publisher_magnetic.publish(magnetic)
+            except rospy.ROSException:
+                pass
 
 
     def shutdown(self):
