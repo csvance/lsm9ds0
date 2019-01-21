@@ -224,6 +224,12 @@ class LSM9DS0(object):
 
         return x, y, z
 
+    def _gs(self, xyz):
+        return xyz[0]/32768. * 16, xyz[1]/32768. * 16, xyz[2]/32768. * 16
+
+    def _gauss(self, xyz):
+        return xyz[0]/32768. * 12, xyz[1]/32768. * 12, xyz[2]/32768. * 12
+
     def _rad(self, data):
         x, y, z = data
         return x * math.pi / 180., y * math.pi / 180., z * math.pi / 180.
@@ -233,13 +239,13 @@ class LSM9DS0(object):
         mag_data = []
         for i in range(0, self._fifo_size):
             data = self._smbus.read_i2c_block_data(LSM9DS0.XM_ADDRESS, LSM9DS0.OUT_X_L_M | LSM9DS0.AUTO_INC, 6)
-            mag_data.append(self._xyz(data))
+            mag_data.append(self._gauss(self._xyz(data)))
 
         # Accel
         accel_data = []
         for i in range(0, self._fifo_size):
             data = self._smbus.read_i2c_block_data(LSM9DS0.XM_ADDRESS, LSM9DS0.OUT_X_L_A | LSM9DS0.AUTO_INC, 6)
-            accel_data.append(self._xyz(data))
+            accel_data.append(self._gs(self._xyz(data)))
 
         # Gyro
         gyro_data = []

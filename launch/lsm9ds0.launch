@@ -1,10 +1,19 @@
 <launch>
+
   <node pkg="lsm9ds0" type="lsm9ds0_node.py" name="lsm9ds0" output="screen">
-    <param name="~gyro_cal_x" value="-0.485164"/>
-    <param name="~gyro_cal_y" value="0.117861"/>
-    <param name="~gyro_cal_z" value="-0.925178"/>
+
     <param name="~gpio_int_pin_num" value="17"/>
     <param name="~i2c_bus_num" value="1"/>
-    <param name="~calibrate" value="false"/>
+
+    <param name="~calibrate_gyro" value="false"/>
+    <param name="~gyro_cal_x" value="-0.41536791"/>
+    <param name="~gyro_cal_y" value="0.17638052"/>
+    <param name="~gyro_cal_z" value="-0.68932324"/>
+
+    <param name="~compute_covariance" value="false"/>
+    <param name="~linear_acceleration_covariance" value="0.00001092, 0.00000105, -0.00000464, 0.00000105, 0.00000856, -0.00000257, -0.00000464, -0.00000257, 0.00002033"/>
+    <param name="~angular_velocity_covariance" value="0.00753188, -0.00024193, 0.00078532, -0.00024193, 0.00581000, -0.00023976, 0.00078532, -0.00023976, 0.00647863"/>
+    <param name="~magnetic_field_covariance" value="0.00000065, 0.00000013, 0.00000032, 0.00000013, 0.00001020, -0.00000056, 0.00000032, -0.00000056, 0.00005557"/>
   </node>
+
 </launch>
